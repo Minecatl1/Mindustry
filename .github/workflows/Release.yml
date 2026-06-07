@@ -1,0 +1,121 @@
+name: Build and Package Linux
+
+on:
+  push:
+    branches:
+      - master
+
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag (optional)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Determine Repository Name
+        id: repo
+        shell: bash
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          echo "name=$REPO_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Determine Release Tag
+        id: tag
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.release_tag }}" ]; then
+            TAG="${{ github.event.inputs.release_tag }}"
+          else
+            TAG="build-$(date -u +'%Y%m%d-%H%M%S')"
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build Linux Distribution
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          ./gradlew desktop:dist
+
+      - name: Create Staging Directory
+        shell: bash
+        run: |
+          mkdir -p build/package/mindustry-linux
+          
+          # Copy the built JAR and related files
+          cp desktop/build/libs/Mindustry.jar build/package/mindustry-linux/
+          cp -r core/assets build/package/mindustry-linux/ 2>/dev/null || true
+          
+          # Create a simple launch script
+          cat > build/package/mindustry-linux/run.sh << 'EOF'
+          #!/bin/bash
+          DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+          java -jar "$DIR/Mindustry.jar" "$@"
+          EOF
+          
+          chmod +x build/package/mindustry-linux/run.sh
+
+      - name: Create tar.xz Package
+        shell: bash
+        run: |
+          PACKAGE_NAME="${{ steps.repo.outputs.name }}-linux-${{ steps.tag.outputs.tag }}.tar.xz"
+
+          tar \
+            --sort=name \
+            --mtime='UTC 2025-01-01' \
+            --owner=0 \
+            --group=0 \
+            --numeric-owner \
+            -cJf "$PACKAGE_NAME" \
+            -C build/package mindustry-linux
+
+          echo "PACKAGE_NAME=$PACKAGE_NAME" >> "$GITHUB_ENV"
+          echo "Created $PACKAGE_NAME"
+
+      - name: Generate SHA256
+        shell: bash
+        run: |
+          sha256sum \
+            "${{ env.PACKAGE_NAME }}" \
+            > "${{ env.PACKAGE_NAME }}.sha256"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.repo.outputs.name }} Linux Build ${{ steps.tag.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            ${{ env.PACKAGE_NAME }}
+            ${{ env.PACKAGE_NAME }}.sha256
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: |
+            ${{ env.PACKAGE_NAME }}
+            ${{ env.PACKAGE_NAME }}.sha256
