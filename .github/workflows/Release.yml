@@ -81,7 +81,7 @@ jobs:
       - name: Create tar.xz Package
         shell: bash
         run: |
-          PACKAGE_NAME="${{ steps.repo.outputs.name }}-linux-${{ steps.tag.outputs.tag }}.tar.xz"
+          PACKAGE_NAME="${{ steps.repo.outputs.name }}.tar.xz"
 
           tar \
             --sort=name \
