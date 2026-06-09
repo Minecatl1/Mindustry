@@ -37,7 +37,7 @@ jobs:
           echo "Target Directory Name: $REPO_NAME"
           
           # 3. Establish workspace directories
-          mkdir -p ./game-temp
+          mkdir -p game-temp
           mkdir -p "$REPO_NAME"
           
           # 4. Download files from itch.io
