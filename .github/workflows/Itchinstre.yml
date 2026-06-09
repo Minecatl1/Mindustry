@@ -41,7 +41,7 @@ jobs:
           mkdir -p "$REPO_NAME"
           
           # 4. Download files from itch.io
-          npx itchio-downloader download "$ITCH_USER" "$ITCH_GAME" --output ./game-temp
+          npx itchio-downloader download --author "$ITCH_USER" --name "$ITCH_GAME" --platform linux --output ./game-temp
           
           # 5. Extract zipped payloads if the downloader left them archived
           cd game-temp
