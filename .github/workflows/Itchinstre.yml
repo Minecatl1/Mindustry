@@ -54,8 +54,6 @@ jobs:
             fi
           done
           ls
-          cd ..
-          ls
           # 6. Relocate all unzipped game assets into the main folder
           cp -r ./game-temp/* ./"$REPO_NAME"/ 2>/dev/null || mv ./game-temp/* ./"$REPO_NAME"/
           rm -rf ./game-temp
