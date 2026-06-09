@@ -1,0 +1,147 @@
+name: Download and Release Linux Itch.io Game
+
+on:
+  workflow_dispatch: # Allows manual trigger from the Actions tab
+  push:
+    tags:
+      - 'v*' # Triggers automatically when you push a tag starting with 'v' (e.g., v1.0.0)
+
+jobs:
+  build_and_package:
+    runs-on: ubuntu-latest
+    outputs:
+      tar_name: ${{ steps.package.outputs.tar_name }}
+      tag_name: ${{ steps.package.outputs.tag_name }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download, Scan, and Package Game
+        id: package
+        env:
+          # Change these variables to point to your exact target game URL
+          ITCH_USER: "anuke"
+          ITCH_GAME: "mindustry"
+        run: |
+          # 1. Install itchio-downloader globally
+          npm install -g itchio-downloader
+          
+          # 2. Extract repository name dynamically
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          echo "Target Directory Name: $REPO_NAME"
+          
+          # 3. Establish workspace directories
+          mkdir -p ./game-temp
+          mkdir -p "$REPO_NAME"
+          
+          # 4. Download files from itch.io
+          npx itchio-downloader download "$ITCH_USER" "$ITCH_GAME" --output ./game-temp
+          
+          # 5. Extract zipped payloads if the downloader left them archived
+          cd game-temp
+          find . -maxdepth 3 -type f \( -name "*.zip" -o -name "*.tar.gz" -o -name "*.tgz" \) | while read -r archive; do
+            echo "Extracting nested archive: $archive"
+            if [[ "$archive" == *.zip ]]; then
+              unzip -q "$archive" && rm "$archive"
+            else
+              tar -xf "$archive" && rm "$archive"
+            fi
+          done
+          cd ..
+          
+          # 6. Relocate all unzipped game assets into the main folder
+          cp -r ./game-temp/* ./"$REPO_NAME"/ 2>/dev/null || mv ./game-temp/* ./"$REPO_NAME"/
+          rm -rf ./game-temp
+          
+          # 7. AUTOMATED BINARY DETECTION SCAN
+          echo "Scanning for Linux binaries..."
+          TARGET_BINARY=""
+          
+          # Priority 1: Check standard Linux file extensions or common game engines (Godot/Unity/Love2D)
+          FOUND_FILE=$(find ./"$REPO_NAME" -type f \( -name "*.x86_64" -o -name "*.x86" -o -name "*.bin" -o -name "*.appimage" -o -name "linux-wrapper" \) -print -quit)
+          
+          # Priority 2: Fallback to inspecting file headers via 'file' utility for native Linux ELF binaries
+          if [ -z "$FOUND_FILE" ]; then
+            echo "No explicit extensions found. Inspecting binary markers..."
+            FOUND_FILE=$(find ./"$REPO_NAME" -type f -not -name "*.*" -executable -exec sh -c 'file -b "$1" | grep -q "ELF"' _ {} \; -print -quit)
+          fi
+          
+          # Isolate relative path inside the directory
+          if [ -n "$FOUND_FILE" ]; then
+            TARGET_BINARY=$(echo "$FOUND_FILE" | sed "s|^\./$REPO_NAME/||")
+            echo "SUCCESS: Found candidate Linux executable: $TARGET_BINARY"
+          else
+            echo "WARNING: No clear Linux binary discovered. Creating generic script."
+            TARGET_BINARY="replace_with_your_actual_binary"
+          fi
+          
+          # 8. Generate the dynamic launch script
+          SCRIPT_NAME="run_${REPO_NAME}.sh"
+          LAUNCH_PATH="./${REPO_NAME}/${SCRIPT_NAME}"
+          
+          echo '#!/bin/bash' > "$LAUNCH_PATH"
+          echo '# Navigate to the script directory to resolve relative file dependencies' >> "$LAUNCH_PATH"
+          echo 'cd "$(dirname "$0")"' >> "$LAUNCH_PATH"
+          echo '' >> "$LAUNCH_PATH"
+          echo "echo \"Launching ${REPO_NAME}...\"" >> "$LAUNCH_PATH"
+          
+          # Point the shell directly to the discovered relative binary location
+          echo "./$TARGET_BINARY \"\$@\"" >> "$LAUNCH_PATH"
+          
+          # 9. Set permissions across the directory bundle
+          chmod +x "$LAUNCH_PATH"
+          if [ "$TARGET_BINARY" != "replace_with_your_actual_binary" ]; then
+            chmod +x ./"$REPO_NAME"/"$TARGET_BINARY"
+          fi
+          
+          # 10. Archive the directory structure to a tar.xz bundle
+          TAR_FILENAME="${REPO_NAME}_linux.tar.xz"
+          echo "Archiving to $TAR_FILENAME..."
+          tar -cJf "$TAR_FILENAME" "$REPO_NAME"
+          
+          # 11. Cleanup loose directory workspace
+          rm -rf "$REPO_NAME"
+          
+          # 12. Save outputs for the next job
+          echo "tar_name=$TAR_FILENAME" >> $GITHUB_OUTPUT
+          
+          # Handle dynamic tag fallback if run manually without a git tag
+          if [ -z "${{ github.ref_name }}" ] || [[ "${{ github.ref }}" != refs/tags/* ]]; then
+            echo "tag_name=manual-build-$(date +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
+          else
+            echo "tag_name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      # Keep artifact upload as a backup safety net
+      - name: Upload Tarball Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-game-archive
+          path: ./${{ steps.package.outputs.tar_name }}
+
+  release:
+    needs: build_and_package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Crucial permission flag required to publish GitHub Releases
+    
+    steps:
+      - name: Download Packaged Game
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-game-archive
+
+      - name: Create GitHub Release and Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build_and_package.outputs.tag_name }}
+          name: Release ${{ needs.build_and_package.outputs.tag_name }}
+          draft: false
+          prerelease: false
+          files: ${{ needs.build_and_package.outputs.tar_name }}
