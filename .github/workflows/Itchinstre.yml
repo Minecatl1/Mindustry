@@ -53,6 +53,7 @@ jobs:
               tar -xf "$archive" && rm "$archive"
             fi
           done
+          ls
           cd ..
           ls
           # 6. Relocate all unzipped game assets into the main folder
