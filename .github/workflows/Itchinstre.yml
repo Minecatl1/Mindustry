@@ -123,9 +123,6 @@ jobs:
 
           echo "Created $PACKAGE_NAME"
           
-          # 11. Cleanup loose directory workspace
-          rm -rf "$REPO_NAME"
-          
 
       # Keep artifact upload as a backup safety net
       - name: Verify Tarball Exists
