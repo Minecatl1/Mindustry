@@ -106,7 +106,8 @@ jobs:
           if [ "$TARGET_BINARY" != "replace_with_your_actual_binary" ]; then
             chmod +x ./"$REPO_NAME"/"$TARGET_BINARY"
           fi
-          cd ..
+          echo $PWD
+          ls --all
           # 10. Archive the directory structure to a tar.xz bundle
           PACKAGE_NAME="${{ steps.repo.outputs.name }}.tar.xz"
           echo "Archiving to $PACKAGE_NAME..."
