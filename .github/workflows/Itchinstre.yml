@@ -106,7 +106,7 @@ jobs:
           if [ "$TARGET_BINARY" != "replace_with_your_actual_binary" ]; then
             chmod +x ./"$REPO_NAME"/"$TARGET_BINARY"
           fi
-          
+          cd ..
           # 10. Archive the directory structure to a tar.xz bundle
           PACKAGE_NAME="${{ steps.repo.outputs.name }}.tar.xz"
           echo "Archiving to $PACKAGE_NAME..."
@@ -117,7 +117,7 @@ jobs:
             --group=0 \
             --numeric-owner \
             -cJvf "$PACKAGE_NAME" \
-            -C build/package .
+            -C "$REPO_NAME" .
 
           echo "tarname=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
 
