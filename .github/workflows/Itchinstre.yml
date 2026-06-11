@@ -57,7 +57,8 @@ jobs:
               tar -xf "$archive" && rm "$archive"
             fi
           done
-          
+          mv Mindustry Mindustry.x86_64
+          mv Mindustry.json Mindustry.x86_64.json
           # 7. AUTOMATED BINARY DETECTION SCAN
           echo "Scanning for Linux binaries..."
           TARGET_BINARY=""
