@@ -55,7 +55,7 @@ jobs:
               unzip -q "$archive" && rm "$archive"
             else
               tar -xf "$archive" && rm "$archive"
-            done
+            fi
           
           # 7. AUTOMATED BINARY DETECTION SCAN
           echo "Scanning for Linux binaries..."
