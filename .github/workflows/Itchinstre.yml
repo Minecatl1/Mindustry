@@ -1,17 +1,21 @@
 name: Download and Release Linux Itch.io Game
 
 on:
-  workflow_dispatch: # Allows manual trigger from the Actions tab
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag (optional)"
+        required: false
+        type: string # Allows manual trigger from the Actions tab
   push:
     tags:
-      - 'v*' # Triggers automatically when you push a tag starting with 'v' (e.g., v1.0.0)
+      - 'V*' # Triggers automatically when you push a tag starting with 'v' (e.g., v1.0.0)
+permissions:
+  contents: write
 
 jobs:
   build_and_package:
     runs-on: ubuntu-latest
-    outputs:
-      tar_name: ${{ steps.package.outputs.tar_name }}
-      tag_name: ${{ steps.package.outputs.tag_name }}
     
     steps:
       - name: Checkout repository
@@ -38,25 +42,20 @@ jobs:
           
           # 3. Establish workspace directories
           mkdir -p game-temp
-          mkdir -p "$REPO_NAME"
-          
+          mkdir -p "Mindustry"
+          cd Mindustry
           # 4. Download files from itch.io
           npx itchio-downloader download --author "$ITCH_USER" --name "$ITCH_GAME" --platform linux --output ./game-temp
-          
+          cd ..
           # 5. Extract zipped payloads if the downloader left them archived
-          cd game-temp
+          cd $REPO_NAME
           find . -maxdepth 3 -type f \( -name "*.zip" -o -name "*.tar.gz" -o -name "*.tgz" \) | while read -r archive; do
             echo "Extracting nested archive: $archive"
             if [[ "$archive" == *.zip ]]; then
               unzip -q "$archive" && rm "$archive"
             else
               tar -xf "$archive" && rm "$archive"
-            fi
-          done
-          ls
-          # 6. Relocate all unzipped game assets into the main folder
-          cp -r ./game-temp/* ./"$REPO_NAME"/ 2>/dev/null || mv ./game-temp/* ./"$REPO_NAME"/
-          rm -rf ./game-temp
+            done
           
           # 7. AUTOMATED BINARY DETECTION SCAN
           echo "Scanning for Linux binaries..."
