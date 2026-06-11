@@ -118,7 +118,7 @@ jobs:
             --group=0 \
             --numeric-owner \
             -cJvf "$PACKAGE_NAME" \
-            -C ${REPO_NAME}/${REPO_NAME} .
+            -C $REPO_NAME .
 
           echo "tarname=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
 
