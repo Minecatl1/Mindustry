@@ -128,11 +128,22 @@ jobs:
           
 
       # Keep artifact upload as a backup safety net
+      - name: Verify Tarball Exists
+        run: |
+          PACKAGE_NAME="${{ steps.package.outputs.tarname }}"
+          if [ -f "$PACKAGE_NAME" ]; then
+            echo "✓ Tarball found: $PACKAGE_NAME"
+            ls -lh "$PACKAGE_NAME"
+          else
+            echo "✗ Tarball not found: $PACKAGE_NAME"
+            exit 1
+          fi
+
       - name: Upload Tarball Artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-game-archive
-          path: ./${{ steps.package.outputs.tarname }}
+          path: ${{ steps.package.outputs.tarname }}
 
   release:
     needs: build_and_package
