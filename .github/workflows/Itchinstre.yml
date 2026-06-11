@@ -61,7 +61,7 @@ jobs:
           # 7. AUTOMATED BINARY DETECTION SCAN
           echo "Scanning for Linux binaries..."
           TARGET_BINARY=""
-          
+          cd ..
           # Priority 1: Check standard Linux file extensions or common game engines (Godot/Unity/Love2D)
           FOUND_FILE=$(find ./"$REPO_NAME" -type f \( -name "*.x86_64" -o -name "*.x86" -o -name "*.bin" -o -name "*.appimage" -o -name "linux-wrapper" \) -print -quit)
           
