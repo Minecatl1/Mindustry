@@ -42,13 +42,13 @@ jobs:
           
           # 3. Establish workspace directories
           mkdir -p game-temp
-          mkdir -p "Mindustry"
-          cd Mindustry
+          mkdir -p "$REPO_NAME"
+          cd "$REPO_NAME"
           # 4. Download files from itch.io
           npx itchio-downloader download --author "$ITCH_USER" --name "$ITCH_GAME" --platform linux --output ./game-temp
           cd ..
           # 5. Extract zipped payloads if the downloader left them archived
-          cd $REPO_NAME
+          cd "$REPO_NAME"
           find . -maxdepth 3 -type f \( -name "*.zip" -o -name "*.tar.gz" -o -name "*.tgz" \) | while read -r archive; do
             echo "Extracting nested archive: $archive"
             if [[ "$archive" == *.zip ]]; then
